@@ -1,0 +1,9 @@
+title = "Connection Test App"
+
+[database]
+postgres_db = "database"
+host = "localhost"
+
+[reader]
+username_length_in_bytes = 32
+password_length_in_bytes = 64

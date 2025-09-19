@@ -9,29 +9,32 @@ import (
 	"io"
 	"strings"
 	"regexp"
-	"path/filepath"
-	"github.com/joho/godotenv"
+	"github.com/BurntSushi/toml"
 )
 
-const maxUsernameBytes = 32
-const maxPasswordBytes = 64
+type Config struct {
+    Title string `toml:"title"`
+    Server ReaderConfig `toml:"reader"` // вложенная секция server
+    Database DatabaseConfig `toml:"database"` // вложенная секция database
+}
+
+type DatabaseConfig struct {
+    Host string `toml:"host"`
+    PostgresDB string `toml:"postgres_db"`
+}
+
+type ReaderConfig struct {
+    MaxUsernameBytes int `toml:"username_length_in_bytes"`
+    MaxPasswordBytes int `toml:"password_length_in_bytes"`
+}
 
 func main()  {
+	var config Config
 
-	procPath, err := filepath.Abs(os.Args[0])
-
-	if (err !=nil){
-		panic(err)
-	}
-
-	err = godotenv.Load(filepath.Join(filepath.Dir(filepath.Dir(procPath)), ".env"))
-
-	if (err !=nil){
-		panic(err)
-	}
-
-	databasePath := os.Getenv("POSTGRES_DB")
-	hostPath := os.Getenv("HOST")
+	_, err := toml.DecodeFile("config.toml", &config)
+	if err != nil {
+        panic(err)
+    }
 
 // Возможные символы для userinfo
 // 		if 'A' <= r && r <= 'Z' {
@@ -41,7 +44,7 @@ func main()  {
 // 			'(', ')', '*', '+', ',', ';', '=', '%', '@':
 
 	connStrPref := "postgresql://"
-	connStrSuff := "@" + hostPath + "/" + databasePath + "?sslmode=disable"
+	connStrSuff := "@" + config.Database.Host + "/" + config.Database.PostgresDB + "?sslmode=disable"
 	
 	// https://github.com/lib/pq/blob/master/conn.go - описана регистрация драйвера sql.Register("postgres", &Driver{})
 	// Далее идем по методам. Open -> DialOpen -> NewConnector, в котором и содержится логика мапинга dsn в когфиг для БД
@@ -59,13 +62,13 @@ func main()  {
 	// 9. Через accrue соединяем параметры в строку key=value
 	// 10. Создаем сущность Connector с указанными параметрами, которая и участвует в открытии сессии до БД
 
-	username, err := readSTDIN(maxUsernameBytes, "имя пользователя")
+	username, err := readSTDIN(config.Server.MaxUsernameBytes, "имя пользователя")
 
 	if (err !=nil){
 		panic(err)
 	}
 
-	password, err := readSTDIN(maxPasswordBytes, "пароль")
+	password, err := readSTDIN(config.Server.MaxPasswordBytes, "пароль")
 
 	if (err !=nil){
 		panic(err)
