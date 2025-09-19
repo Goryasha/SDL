@@ -9,12 +9,29 @@ import (
 	"io"
 	"strings"
 	"regexp"
+	"path/filepath"
+	"github.com/joho/godotenv"
 )
 
 const maxUsernameBytes = 32
 const maxPasswordBytes = 64
 
 func main()  {
+
+	procPath, err := filepath.Abs(os.Args[0])
+
+	if (err !=nil){
+		panic(err)
+	}
+
+	err = godotenv.Load(filepath.Join(filepath.Dir(filepath.Dir(procPath)), ".env"))
+
+	if (err !=nil){
+		panic(err)
+	}
+
+	databasePath := os.Getenv("POSTGRES_DB")
+	hostPath := os.Getenv("HOST")
 
 // Возможные символы для userinfo
 // 		if 'A' <= r && r <= 'Z' {
@@ -24,7 +41,7 @@ func main()  {
 // 			'(', ')', '*', '+', ',', ';', '=', '%', '@':
 
 	connStrPref := "postgresql://"
-	connStrSuff := "@localhost/database?sslmode=disable"
+	connStrSuff := "@" + hostPath + "/" + databasePath + "?sslmode=disable"
 	
 	// https://github.com/lib/pq/blob/master/conn.go - описана регистрация драйвера sql.Register("postgres", &Driver{})
 	// Далее идем по методам. Open -> DialOpen -> NewConnector, в котором и содержится логика мапинга dsn в когфиг для БД
