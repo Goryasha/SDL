@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"context"
+	"time"
 	"database/sql"
 	_ "github.com/lib/pq"
 	"os"
@@ -82,8 +84,14 @@ func main()  {
     }
 	defer db.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+    defer cancel()
+
 	var version string
-	err = db.QueryRow("SELECT VERSION();").Scan(&version)
+	err = db.QueryRowContext(ctx, "SELECT VERSION();").Scan(&version)
+	if ctx.Err() == context.DeadlineExceeded {
+		panic("Запрос превысил лимит времени!")
+	}
     if err != nil{
         panic(err)
     }
