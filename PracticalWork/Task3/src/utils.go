@@ -12,7 +12,7 @@ import (
 func getIntEnv(paramName string) (int){
 	param, err := strconv.Atoi(os.Getenv(paramName))
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка конвертации переменных окружения.")
+		writeLogs(os.Stderr,"Ошибка конвертации переменных окружения.")
 		os.Exit(-1)
 	}
 	return param
@@ -43,19 +43,19 @@ func getParamsAndValues(minValues int, maxValues int, db *sql.DB, table string, 
 	if (action == "insert_many"){
 		roundStr, err :=readSTDIN(ROUND_BYTES, "Введите количество добавляемых строк.", "[^0-9]")
 		if (err !=nil){
-			fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+			writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 			os.Exit(-1)
 		}
 		rounds, err = strconv.Atoi(roundStr)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Ошибка конвертации в int.")
+			writeLogs(os.Stderr, "Ошибка конвертации в int.")
 			os.Exit(-1)
 		}
 	}
 	
 	for i := 0; i < rounds; i++ {
 		if (action == "insert_many"){
-			fmt.Printf("Введите значения для %d строки.\n", i + 1)
+			writeLogs(os.Stdout, fmt.Sprintf("Введите значения для %d строки.\n", i + 1))
 		}
 
 		paramsMap = map[string]string{}
@@ -64,12 +64,12 @@ func getParamsAndValues(minValues int, maxValues int, db *sql.DB, table string, 
 		for valuesCounter < maxValues {
 			paramName, err :=readSTDIN(PARAMETER_BYTES, fmt.Sprintf("Введите параметр%s. Если необходимо закончить, введите '_'.", ACTIONS_MAP[action]), "[^a-z_]")
 			if (err !=nil){
-				fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+				writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 				os.Exit(-1)
 			}
 			if (paramName == "_"){
 				if (valuesCounter < minValues){
-					fmt.Printf("Аргументов должно быть больше %d.\n", minValues - 1)
+					writeLogs(os.Stdout, fmt.Sprintf("Аргументов должно быть больше %d.\n", minValues - 1))
 					continue
 				}else{
 					break
@@ -77,18 +77,18 @@ func getParamsAndValues(minValues int, maxValues int, db *sql.DB, table string, 
 			}
 
 			if(!slices.Contains(columns, paramName)){
-				fmt.Printf("Такого столбца в таблице нет. Есть только %s\n", columns)
+				writeLogs(os.Stdout, fmt.Sprintf("Такого столбца в таблице нет. Есть только %s\n", columns))
 				continue
 			}
 
 			if(action == "update_one" && paramName == "id"){
-				fmt.Print("Поле id изменять нельзя!\n")
+				writeLogs(os.Stdout, "Поле id изменять нельзя!\n")
 				continue
 			}
 			
 			paramValue, err :=readSTDIN(PARAMETER_VALUE_BYTES, fmt.Sprintf("Введите значение параметра%s: ", ACTIONS_MAP[action]), "")
 			if (err !=nil){
-				fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+				writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 				os.Exit(-1)
 			}
 			
@@ -109,17 +109,17 @@ func getParamsAndValues(minValues int, maxValues int, db *sql.DB, table string, 
 		for {
 			paramName, err :=readSTDIN(PARAMETER_BYTES, "Введите параметр, по которому будет происходить изменение.", "[^a-z_]")
 			if (err !=nil){
-				fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+				writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 				os.Exit(-1)
 			}
 			if(!slices.Contains(columns, paramName)){
-				fmt.Printf("Такого столбца в таблице нет. Есть только %s\n", columns)
+				writeLogs(os.Stdout, fmt.Sprintf("Такого столбца в таблице нет. Есть только %s\n", columns))
 				continue
 			}
 			for{
 				paramValue, err :=readSTDIN(PARAMETER_VALUE_BYTES, "Введите значение параметра, по которому будет происходить изменение. Если необходимо закончить, введите '_'.", "")
 				if (err !=nil){
-					fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+					writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 					os.Exit(-1)
 				}
 				if (paramValue == "_"){
@@ -138,7 +138,7 @@ func getId() (string){
 	ID_BYTES := 10
 	id, err :=readSTDIN(ID_BYTES, "Введите id изменяемой записи.\n", "[^0-9]+")
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 	return id
@@ -213,9 +213,16 @@ func convertMapToQueryAndParams(paramMap map[string]string, table string, action
 			query = query + strings.Join(parts, ", ") + " ) VALUES ( " + strings.Join(partsEnd, ", ") + " ) RETURNING id"
 
 		default:
-			fmt.Fprintln(os.Stderr,"Невозможный сценарий!")
+			writeLogs(os.Stderr,"Невозможный сценарий!")
 			os.Exit(-1)
 	}
 	
 	return query, paramValues
+}
+
+func writeLogs(baseHandler *os.File, text string){
+	if fileHandler !=nil {
+		fmt.Fprint(fileHandler, text + "\n")
+	}
+	fmt.Fprint(baseHandler, text)
 }

@@ -19,7 +19,7 @@ func execQueryAndPrintResult(db *sql.DB, query string, placeholders ...any) (map
 
 	columns, err := rows.Columns()
 	if err != nil {
-		fmt.Fprintln(os.Stderr,"Ошбика чтения названия колонок в ответе от БД.")
+		writeLogs(os.Stderr,"Ошбика чтения названия колонок в ответе от БД.")
 		os.Exit(-1)
 	}
 
@@ -34,7 +34,7 @@ func execQueryAndPrintResult(db *sql.DB, query string, placeholders ...any) (map
 	for rows.Next() {
 		err = rows.Scan(scans...)
 		if err != nil {
-			fmt.Fprintln(os.Stderr,"Ошибка чтения ответов от БД.")
+			writeLogs(os.Stderr,"Ошибка чтения ответов от БД.")
 			os.Exit(-1)
 		}
 
@@ -52,17 +52,17 @@ func execQueryAndPrintResult(db *sql.DB, query string, placeholders ...any) (map
 		
 		jsonData, err := json.MarshalIndent(record, "", "  ")
 		if (err != nil) {
-			fmt.Fprintln(os.Stderr,"Ошибка формирования json.")
+			writeLogs(os.Stderr,"Ошибка формирования json.")
 			os.Exit(-1)
 		}
 		if (len(jsonData) == 0){
-			fmt.Print("Данных по запросу не нашлось!\n")
+			writeLogs(os.Stdout, "Данных по запросу не нашлось!\n")
 		}
-		fmt.Println(string(jsonData))
+		writeLogs(os.Stdout, string(jsonData))
 	}
 
 	if err = rows.Err(); err != nil {
-		fmt.Fprintln(os.Stderr,"Ошибка итерации по ответам от БД.")
+		writeLogs(os.Stderr,"Ошибка итерации по ответам от БД.")
 		os.Exit(-1)
 	}
 
@@ -79,13 +79,13 @@ func announceNotNull(db *sql.DB, table string)(){
         var col string
         err := rows.Scan(&col)
         if err != nil {
-            fmt.Fprintln(os.Stderr,"Ошибка чтения ответов от БД.")
+            writeLogs(os.Stderr,"Ошибка чтения ответов от БД.")
 			os.Exit(-1)
         }
         columns = append(columns, col)
     }
 
-	fmt.Printf("Внимание, данные параметры %s обязательны для данной таблицы!\n",columns)
+	writeLogs(os.Stdout, fmt.Sprintf("Внимание, данные параметры %s обязательны для данной таблицы!\n",columns))
 }
 
 func getTableStructure(db *sql.DB, table string) ([]string){
@@ -98,7 +98,7 @@ func getTableStructure(db *sql.DB, table string) ([]string){
         var col string
         err := rows.Scan(&col)
         if err != nil {
-            fmt.Fprintln(os.Stderr,"Ошибка чтения ответов от БД.")
+            writeLogs(os.Stderr,"Ошибка чтения ответов от БД.")
 			os.Exit(-1)
         }
         columns = append(columns, col)
@@ -121,7 +121,7 @@ func chooseConnectedTables(db *sql.DB, table string) ([]string){
         var col2 string
         err := rows.Scan(&col, &col2)
         if err != nil {
-            fmt.Fprintln(os.Stderr,"Ошибка чтения ответов от БД.")
+            writeLogs(os.Stderr,"Ошибка чтения ответов от БД.")
 			os.Exit(-1)
         }
 		connectedTables[fmt.Sprintf("%d", connectedCounter)] = []string{col, col2}
@@ -129,25 +129,25 @@ func chooseConnectedTables(db *sql.DB, table string) ([]string){
     }
 
 	if (len(connectedTables) != 0){
-		fmt.Print("С данной таблицей связаны таблицы (Выберите одну из них):\n")
+		writeLogs(os.Stdout, "С данной таблицей связаны таблицы (Выберите одну из них):\n")
 		for k, v := range connectedTables{
-			fmt.Printf("%s - Таблица %s - Поле %s\n", k, v[0], v[1])
+			writeLogs(os.Stdout, fmt.Sprintf("%s - Таблица %s - Поле %s\n", k, v[0], v[1]))
 		}
 	} else {
-		fmt.Print("У данной таблицы нет связанных таблиц!\n")
+		writeLogs(os.Stdout, "У данной таблицы нет связанных таблиц!\n")
 		return nil
 	}
 
 	for {
 		tableNumber, err := readSTDIN(TABLE_BYTES, "Выберите одну из таблиц\n", "[^0-9]+")
 		if (err !=nil){
-			fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+			writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 			os.Exit(-1)
 		}
 		
 		table2Param, res := connectedTables[tableNumber]
 		if (!res){
-			fmt.Print("Такой записи нет!\n")
+			writeLogs(os.Stdout, "Такой записи нет!\n")
 			continue
 		}
 
@@ -160,11 +160,11 @@ func executeQuery(db *sql.DB, query string, placeholders ...any)(*sql.Rows, cont
 	defer cancel()
 	stmt, err := db.PrepareContext(ctx, query)
 	if ctx.Err() == context.DeadlineExceeded {
-		fmt.Fprintln(os.Stderr,"Запрос превысил лимит времени!")
+		writeLogs(os.Stderr,"Запрос превысил лимит времени!")
 		os.Exit(-1)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr,"Ошибка создания Prepare Statement.")
+		writeLogs(os.Stderr,"Ошибка создания Prepare Statement.")
 		os.Exit(-1)
 	}
 	defer stmt.Close()
@@ -172,11 +172,11 @@ func executeQuery(db *sql.DB, query string, placeholders ...any)(*sql.Rows, cont
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 	rows, err := stmt.QueryContext(ctx, placeholders...)
 	if ctx.Err() == context.DeadlineExceeded {
-		fmt.Fprintln(os.Stderr,"Запрос превысил лимит времени!")
+		writeLogs(os.Stderr,"Запрос превысил лимит времени!")
 		os.Exit(-1)
 	}
 	if err != nil{
-		fmt.Fprintln(os.Stderr,"Ошибка выполнения запроса.")
+		writeLogs(os.Stderr,"Ошибка выполнения запроса.")
 		os.Exit(-1)
 	}
 

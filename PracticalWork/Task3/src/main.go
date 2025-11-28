@@ -17,19 +17,30 @@ import (
 
 	// "github.com/joho/godotenv"
 )
+
+var fileHandler *os.File
+
 func main()  {
 
 	// procPath, err := filepath.Abs(os.Args[0])
 	// if (err !=nil){
-	// 	fmt.Fprintln(os.Stderr,"Ошибка получения пути процесса.")
+	// 	writeLogs(os.Stderr,"Ошибка получения пути процесса.")
 	// 	os.Exit(-1)
 	// }
 
 	// err = godotenv.Load(filepath.Join(filepath.Dir(filepath.Dir(procPath)), ".env"))
 	// if (err !=nil){
-	// 	fmt.Fprintln(os.Stderr,"Ошибка получения переменных окружения.")
+	// 	writeLogs(os.Stderr,"Ошибка получения переменных окружения.")
 	// 	os.Exit(-1)
 	// }
+
+	var err error
+
+	filePath := os.Getenv("LOG_FILE_PATH")
+	fileHandler, err = os.Create(filePath)
+	if err != nil {
+        writeLogs(os.Stdout, err.Error())
+    }
 
 	databasePath := os.Getenv("POSTGRES_DB")
 	hostPath := os.Getenv("HOST")
@@ -43,13 +54,13 @@ func main()  {
 
 	username, err := readSTDIN(MaxUsernameBytes, "Введите имя пользователя: ", `[#?]`)
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
 	password, err := readSTDIN(MaxPasswordBytes, "Введите пароль: ", `[#?]`)
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
@@ -57,7 +68,7 @@ func main()  {
 
 	db, err := sql.Open("postgres", connStr)
     if err != nil {
-        fmt.Fprintln(os.Stderr,"Ошибка создзания коннектора к БД.")
+        writeLogs(os.Stderr,"Ошибка создзания коннектора к БД.")
 		os.Exit(-1)
     }
 	defer db.Close()
@@ -66,11 +77,11 @@ func main()  {
 
 	err = db.PingContext(ctx)
 	if ctx.Err() == context.DeadlineExceeded {
-		fmt.Fprintln(os.Stderr,"Запрос превысил лимит времени!")
+		writeLogs(os.Stderr,"Запрос превысил лимит времени!")
 		os.Exit(-1)
 	}
 	if err != nil {
-        fmt.Fprintln(os.Stderr,"Ошибка доступа к БД.")
+        writeLogs(os.Stderr,"Ошибка доступа к БД.")
 		os.Exit(-1)
     }
 	cancel()
@@ -82,12 +93,12 @@ func main()  {
 func readSTDIN(ByteLimit int, text string, regular string) (value string, err error) {	
 	reader := bufio.NewReader(io.LimitReader(os.Stdin, int64(ByteLimit)))
 	
-	fmt.Print(text)
+	writeLogs(os.Stdout, text)
     value, err = reader.ReadString('\n')
 	value = strings.TrimSuffix(value, "\n")
 
     if err != nil && err != io.EOF {
-        fmt.Printf("Ошибка чтения: %v\n", err)
+        writeLogs(os.Stderr, "Ошибка чтения: STDIN")
         return "", err
 	}
 
@@ -110,7 +121,7 @@ func sqlScenario(db *sql.DB) () {
 	for {
 		scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Select\n2 - Update\n3 - Insert One\n4 - Insert Many\nВведите '-1', чтобы закончить\n", "[^0-9-]+")
 		if (err !=nil){
-			fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+			writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 			os.Exit(-1)
 		}
 		if (scenario == "-1"){
@@ -119,12 +130,12 @@ func sqlScenario(db *sql.DB) () {
 
 		table, err := readSTDIN(SCENARIO_BYTES, "Выберите Таблицу:\n1-products\n2-product_categories\n3-users\n4-orders\n5-order_details\n", "[^0-9-]+")
 		if (err !=nil){
-			fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+			writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 			os.Exit(-1)
 		}
 		tableName, exists := tables[table]
 		if !exists{
-			fmt.Print("Такой таблицы не существует!\n")
+			writeLogs(os.Stdout, "Такой таблицы не существует!\n")
 			continue
 		}
 
@@ -139,7 +150,7 @@ func sqlScenario(db *sql.DB) () {
 			case "4":
 				insertManyScenario(db, tableName)
 			default:
-				fmt.Printf("%s", "Такой команды не существует!\n")
+				writeLogs(os.Stdout, "Такой команды не существует!\n")
 		}
 	}
 }
@@ -149,7 +160,7 @@ func selectScenario(db *sql.DB, table string) (){
 
 	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Выбрать все данные\n2 - Выбрать данные по одному параметру\n3 - Выбрать данные по нескольким параметрам\n", "[^0-9]+")
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
@@ -167,7 +178,7 @@ func selectScenario(db *sql.DB, table string) (){
 			query, paramValues := convertMapToQueryAndParams(paramMap[0], table, "select", make(map[string][]any))
 			execQueryAndPrintResult(db, query, paramValues...)
 		default:
-			fmt.Printf("%s", "Такой команды не существует!\n")
+			writeLogs(os.Stdout, "Такой команды не существует!\n")
 	}
 }
 
@@ -176,7 +187,7 @@ func updateScenario(db *sql.DB, table string) (){
 
 	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Изменить одну запись\n2 - Изменить несколько записей\n", "[^0-9]+")
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
@@ -194,7 +205,7 @@ func updateScenario(db *sql.DB, table string) (){
 			execQueryAndPrintResult(db, query, paramValues...)
 		
 		default:
-			fmt.Print("Такой команды не существует!\n")
+			writeLogs(os.Stdout, "Такой команды не существует!\n")
 	}
 }
 
@@ -203,7 +214,7 @@ func insertOneScenario(db *sql.DB, table string) (){
 
 	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Добавить одну строку в одну таблицу\n2 - Добавить одну строку в несколько связанных таблиц\n", "[^0-9]+")
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
@@ -225,11 +236,11 @@ func insertOneScenario(db *sql.DB, table string) (){
 				query, paramValues = convertMapToQueryAndParams(paramMap[0], table, "insert_one", make(map[string][]any))
 				execQueryAndPrintResult(db, query, paramValues...)
 			} else {
-				fmt.Print("Невозможно выполнить сценарий!\n")
+				writeLogs(os.Stdout, "Невозможно выполнить сценарий!\n")
 			}
 		
 		default:
-			fmt.Print("Такой команды не существует!\n")
+			writeLogs(os.Stdout, "Такой команды не существует!\n")
 	}
 }
 
@@ -238,7 +249,7 @@ func insertManyScenario(db *sql.DB, table string) (){
 
 	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Добавить несколько строк в одну таблицу\n2 - Добавить одну строку в несколько связанных таблиц\n", "[^0-9]+")
 	if (err !=nil){
-		fmt.Fprintln(os.Stderr,"Ошибка чтения STDIN.")
+		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
 	}
 
@@ -263,10 +274,10 @@ func insertManyScenario(db *sql.DB, table string) (){
 					execQueryAndPrintResult(db, query, paramValues...)
 				}
 			} else {
-				fmt.Print("Невозможно выполнить сценарий!\n")
+				writeLogs(os.Stdout, "Невозможно выполнить сценарий!\n")
 			}
 			
 		default:
-			fmt.Print("Такой команды не существует!\n")
+			writeLogs(os.Stdout, "Такой команды не существует!\n")
 	}
 }
