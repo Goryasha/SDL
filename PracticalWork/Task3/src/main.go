@@ -247,7 +247,7 @@ func insertOneScenario(db *sql.DB, table string) (){
 func insertManyScenario(db *sql.DB, table string) (){
 	SCENARIO_BYTES := 3
 
-	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Добавить несколько строк в одну таблицу\n2 - Добавить одну строку в несколько связанных таблиц\n", "[^0-9]+")
+	scenario, err := readSTDIN(SCENARIO_BYTES, "Выберите действие :\n1 - Добавить несколько строк в одну таблицу\n2 - Добавить несколько строк в несколько связанных таблиц\n", "[^0-9]+")
 	if (err !=nil){
 		writeLogs(os.Stderr,"Ошибка чтения STDIN.")
 		os.Exit(-1)
