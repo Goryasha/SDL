@@ -1,0 +1,26 @@
+version: '3'
+services:
+  postgres:
+    build: 
+      context: .
+    env_file:
+      - ./DB_scripts/.env
+    volumes:
+      - ./DB_scripts/init_filled.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+  healthcheck:
+    build:
+      context: src
+    env_file:
+      - src/.env
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    name: app-network
+    external: true

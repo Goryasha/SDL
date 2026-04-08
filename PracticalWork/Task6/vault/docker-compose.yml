@@ -1,0 +1,24 @@
+version: '3'
+services:
+  vault:
+    image: vault:1.13.3
+    ports:
+      - "8200:8200"
+    env_file:
+      - ./vault.env
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./init_vault.sh:/init_vault.sh
+      - vault-data:/vault
+    command: sh /init_vault.sh
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    name: app-network
+    external: true
+
+volumes:
+  vault-data:
