@@ -41,7 +41,14 @@ func main()  {
 	if err != nil {
         writeLogs(os.Stdout, err.Error())
     }
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+    defer cancel()
+
     secret, err := appRoleAuth.Login(context.Background(), client)
+	if ctx.Err() == context.DeadlineExceeded {
+		writeLogs(os.Stdout, "Запрос превысил лимит времени!")
+	}
     if err != nil {
         writeLogs(os.Stdout, err.Error())
     }
@@ -55,8 +62,14 @@ func main()  {
 
 	mountPath := os.Getenv("VAULT_MOUNT_POINT")
     secretPath := os.Getenv("VAULT_HEALTHCHECK_SECRET_PATH")
+	
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+    defer cancel()
 
-    readSecret, err := client.Logical().Read(mountPath + "/data/" + secretPath)
+    readSecret, err := client.Logical().ReadWithContext(ctx, mountPath + "/data/" + secretPath)
+	if ctx.Err() == context.DeadlineExceeded {
+		writeLogs(os.Stdout, "Запрос превысил лимит времени!")
+	}
     if err != nil {
         writeLogs(os.Stdout, err.Error())
     }
@@ -65,7 +78,7 @@ func main()  {
         writeLogs(os.Stdout, "Секрет не найден.")
     }
 
-    secretData, ok := readSecret.Data["data"].(map[string]interface{})
+    secretData, ok := readSecret.Data["data"].(map[string]any)
     if !ok {
         writeLogs(os.Stdout, "Не удалось распарсить содержимое секрета.")
     }
