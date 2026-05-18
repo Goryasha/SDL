@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"regexp"
-	// "log"
 )
 
 func GetIntEnv(paramName string) (int){
@@ -126,8 +125,6 @@ func LogOutput(f *os.File, ef *os.File) func() {
 
 	exitOut := make(chan bool)
 	exitErr := make(chan bool)
-
-	// log.SetOutput(mwErr)
 
 
 	go func() {
