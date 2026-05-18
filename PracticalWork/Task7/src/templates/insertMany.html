@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Добавление записей в связанные таблицы</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { margin-bottom: 10px; }
+    .scenario { margin-bottom: 15px; }
+    .form-group { margin-bottom: 10px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    label { min-width: 120px; font-weight: bold; }
+    input, select { width: 200px; padding: 5px; }
+    button { padding: 6px 12px; cursor: pointer; margin-top: 15px; }
+    #resultMessage {
+      margin-top: 20px;
+      padding: 10px;
+      display: none;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .linked-field input { background-color: #e6f7ff; }
+    .connected-table-fields { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc; }
+    .connected-table-fields h3 { margin-top: 0; font-size: 1.1em; }
+
+    .record-group {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      background-color: #fafafa;
+    }
+
+    .pair-group {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .disabled-option {
+      color: #9e9e9e;
+      pointer-events: none;
+      cursor: not-allowed;
+    }
+
+    .scenario-unavailable {
+      color: #d32f2f;
+      font-style: italic;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .control-buttons {
+      margin-top: 15px;
+    }
+
+  </style>
+</head>
+<body>
+  <button class="button" onclick="window.location.href = '/'">На главную</button>
+
+  <h2>Добавление записей в связанные таблицы {{.Table}}</h2>
+
+  <div class="scenario">
+    <label>
+      <input type="radio" name="scenario" value="1" checked> Добавить одну или несколько строк в одну таблицу
+    </label><br>
+    
+    <label>
+      <input type="radio" name="scenario" id="scenario2Radio" value="2"> Добавить несколько пар записей (основная + связанная)
+    </label>
+    
+    <div id="scenarioErrorMessage" class="scenario-unavailable">
+      Сценарий недоступен: нет связанных таблиц для подключения.
+    </div>
+  </div>
+
+  <form id="addForm">
+
+    <div id="singleForm" style="display: block;">
+      <h3>Данные для записи</h3>
+      
+      <div id="singleFieldsContainer">
+        <div class="record-group">
+        </div>
+      </div>
+      
+      <div class="control-buttons">
+        <button type="button" id="addSingleElementBtn">Добавить элемент</button>
+        <button type="button" id="removeSingleElementBtn">Удалить элемент</button>
+        <span style="margin-left: 10px;">* Минимум один элемент должен быть.</span>
+      </div>
+      
+    </div>
+
+    <div id="multipleForm" style="display: none;">
+      
+      <div class="form-group">
+        <label>Связанная таблица:</label>
+        <select id="connectedTableSelect" disabled>
+          <option value="">-- Выберите таблицу --</option>
+        </select>
+      </div>
+
+      <div id="pairsContainer">
+        <div class="pair-group record-group">
+          <div id="mainFieldsContainer"></div>
+          <div id="connectedFieldsContainer"></div>
+        </div>
+      </div>
+
+      <div class="control-buttons">
+        <button type="button" id="addPairBtn">Добавить элемент (пару)</button>
+        <button type="button" id="removePairBtn">Удалить элемент (пару)</button>
+        <span style="margin-left: 10px;">* Минимум одна пара должна быть.</span>
+      </div>
+      
+    </div>
+
+    <button id="submitButton" type="submit">Выполнить</button>
+
+  </form>
+
+  <div id="resultMessage"></div>
+
+  <script>
+    const form = document.getElementById('addForm');
+
+    const columns = {{.Columns}};
+    const connectedTablesData = {{.ConnectedTables}}.Tables;
+    const notNullColumnsMain = {{.NotNullColumns}} || [];
+
+     function createInput(NotNullColumns, name, placeholder, type = 'text', options = {}) {
+       const div = document.createElement('div');
+       div.className = 'form-group';
+ 
+       const label = document.createElement('label');
+       label.htmlFor = name;
+       label.textContent = placeholder;
+ 
+       const input = document.createElement('input');
+       input.type = type || 'text';
+       input.name = name;
+       input.placeholder = placeholder;
+
+       if (NotNullColumns.includes(name)) {
+         const star = document.createElement('span');
+         star.className = 'required-indicator';
+         star.textContent = '*';
+         label.appendChild(star);
+       }
+ 
+       if (options.disabled) {
+         input.disabled = true;
+         input.style.backgroundColor = '#f0f4f8';
+         label.style.color = '#9e9e9e';
+       }
+ 
+       div.appendChild(label);
+       div.appendChild(input);
+       return div;
+     }
+
+
+     function updateFields() {
+         const scenario = document.querySelector('input[name="scenario"]:checked').value;
+         singleForm.style.display = scenario === '1' ? 'block' : 'none';
+         multipleForm.style.display = scenario === '2' ? 'block' : 'none';
+         
+         const submitButton = document.getElementById('submitButton');
+
+         const scenario2Radio = document.getElementById('scenario2Radio');
+         const errorMessage = document.getElementById('scenarioErrorMessage');
+
+         if (scenario === '1') {
+             setupSingleScenarioButtons();
+             submitButton.disabled = false;
+             errorMessage.style.display = 'none';
+             
+         } else {
+             setupMultipleScenarioButtons();
+             const addPairButton = document.getElementById('addPairBtn');
+             const removePairButton = document.getElementById('removePairBtn');
+             submitButton.disabled = true;
+             addPairButton.disabled = true;
+             removePairButton.disabled = true;
+             
+             const select = document.getElementById('connectedTableSelect');
+             select.innerHTML = '<option value="">-- Выберите таблицу --</option>';
+             
+             if (connectedTablesData.length === 0) {
+                 select.disabled = true;
+                 scenario2Radio.disabled = true;
+                 scenario2Radio.parentElement.classList.add('disabled-option');
+                 errorMessage.style.display = 'block';
+                 submitButton.disabled = true;
+                 addPairButton.disabled = true;
+                 removePairButton.disabled = true;
+             } else {
+                 select.disabled = false;
+                 connectedTablesData.forEach(tableInfo => {
+                     const option = document.createElement('option');
+                     option.value = tableInfo.TableName;
+                     option.textContent = tableInfo.TableName;
+                     select.appendChild(option);
+                  });
+                 scenario2Radio.disabled = false;
+                 scenario2Radio.parentElement.classList.remove('disabled-option');
+                 errorMessage.style.display = 'none';
+                 
+                 pairsContainer.innerHTML = '';
+                 addInitialPair();
+             }
+         }
+     }
+
+
+     const singleFieldsContainer = document.getElementById('singleFieldsContainer');
+     let singleGroupCount = 1;
+
+     function addSingleGroup() {
+         singleGroupCount++;
+         const groupDiv = document.createElement('div');
+         groupDiv.className = 'record-group';
+         
+         columns.forEach(col => {
+             groupDiv.appendChild(createInput(notNullColumnsMain, col, col));
+         });
+         
+         singleFieldsContainer.appendChild(groupDiv);
+     }
+
+     function removeSingleGroup() {
+         if (singleGroupCount > 1) {
+             singleFieldsContainer.removeChild(singleFieldsContainer.lastChild);
+             singleGroupCount--;
+         }
+     }
+
+     function setupSingleScenarioButtons() {
+         singleFieldsContainer.innerHTML = '';
+         singleGroupCount = 1;
+         
+         addSingleGroup();
+         
+         document.getElementById('addSingleElementBtn').onclick = addSingleGroup;
+         document.getElementById('removeSingleElementBtn').onclick = removeSingleGroup;
+     }
+
+
+     const pairsContainer = document.getElementById('pairsContainer');
+     let pairCount = 0;
+
+     function addInitialPair() {
+         pairCount++;
+         const pairDiv = document.createElement('div');
+         pairDiv.className = 'pair-group record-group';
+         
+         pairDiv.innerHTML = `
+           <div id="mainFieldsContainer-${pairCount}"></div>
+           <div id="connectedFieldsContainer-${pairCount}"></div>
+           <hr style="width:100%; border:none; border-top:1px dashed #ccc; margin:15px 0;" />
+         `;
+         pairsContainer.appendChild(pairDiv);
+     }
+
+
+     document.getElementById('connectedTableSelect').addEventListener('change', function() {
+         const addPairButton = document.getElementById('addPairBtn');
+         const removePairButton = document.getElementById('removePairBtn');
+         const selectedValue = this.value;
+         
+         if (!selectedValue) {
+             pairsContainer.innerHTML = '';
+             submitButton.disabled = true;
+             addPairButton.disabled = true;
+             removePairButton.disabled = true;
+             pairCount = 0
+             return;
+         }
+         
+         submitButton.disabled = false;
+         addPairButton.disabled = false;
+         removePairButton.disabled = false;   
+         
+         const tableInfo = connectedTablesData.find(t => t.TableName === selectedValue);
+         
+         pairsContainer.querySelectorAll('.pair-group').forEach((pairDiv, index) => {
+             const mainContId = `mainFieldsContainer-${index + 1}`;
+             const connContId = `connectedFieldsContainer-${index + 1}`;
+             
+             const mainFieldsContainer = document.getElementById(mainContId);
+             const connectedFieldsContainer = document.getElementById(connContId);
+             console.log(mainFieldsContainer);
+             console.log(connectedFieldsContainer);
+
+             while (mainFieldsContainer.firstChild) {
+                mainFieldsContainer.removeChild(mainFieldsContainer.firstChild);
+             }
+             while (connectedFieldsContainer.firstChild) {
+                connectedFieldsContainer.removeChild(connectedFieldsContainer.firstChild);
+             }
+             
+             columns.forEach(col => {
+                 const isLinkFieldInMainTable = (col === tableInfo.ConnectedField);
+                 mainFieldsContainer.appendChild(
+                     createInput(notNullColumnsMain, col, col, null, { disabled: isLinkFieldInMainTable })
+                 );
+             });
+             
+             tableInfo.Columns.forEach(col => {
+                 const isLinkedFieldInConnectedTable = (col === tableInfo.ConnectedField);
+                 const notNullColumnsConnected = tableInfo.NotNullColumns || [];
+                 
+                 connectedFieldsContainer.appendChild(
+                     createInput(notNullColumnsConnected, col, col, isLinkedFieldInConnectedTable ? 'text' : null, isLinkedFieldInConnectedTable)
+                 );
+             });
+             
+             if (index === pairsContainer.children.length - 1) {
+                 pairDiv.querySelector('hr').remove();
+             }
+         });
+     });
+
+
+     function setupMultipleScenarioButtons() {
+         pairsContainer.innerHTML = '';
+
+         
+         document.getElementById('addPairBtn').onclick = () => {
+             pairCount++;
+             const selectedValue = document.getElementById('connectedTableSelect').value;
+             const tableInfo = connectedTablesData.find(t => t.TableName === selectedValue);
+             
+             const pairDiv = document.createElement('div');
+             pairDiv.className = 'pair-group record-group';
+             
+             pairDiv.innerHTML = `
+               <div id="mainFieldsContainer-${pairCount}"></div>
+               <div id="connectedFieldsContainer-${pairCount}"></div>
+               <hr style="width:100%; border:none; border-top:1px dashed #ccc; margin:15px 0;" />
+               `;
+             
+             pairsContainer.appendChild(pairDiv);
+
+             const mainFieldsContainer = document.getElementById(`mainFieldsContainer-${pairCount}`);
+             const connectedFieldsContainer = document.getElementById(`connectedFieldsContainer-${pairCount}`);
+
+             if (document.getElementById('connectedTableSelect').value) {
+                columns.forEach(col => {
+                    const isLinkFieldInMainTable = (col === tableInfo.ConnectedField);
+                    mainFieldsContainer.appendChild(
+                        createInput(notNullColumnsMain, col, col, null, { disabled: isLinkFieldInMainTable })
+                    );
+                });
+
+                tableInfo.Columns.forEach(col => {
+                    const isLinkedFieldInConnectedTable = (col === tableInfo.ConnectedField);
+                    const notNullColumnsConnected = tableInfo.NotNullColumns || [];
+                    
+                    connectedFieldsContainer.appendChild(
+                        createInput(notNullColumnsConnected, col, col, isLinkedFieldInConnectedTable ? 'text' : null, isLinkedFieldInConnectedTable)
+                    );
+                });
+              }
+             
+            if (pairCount > 0) {
+                pairsContainer.querySelector('.pair-group hr').remove();
+            }
+            
+            console.log(`Добавлена пара №${pairCount}`);
+          };
+          
+          document.getElementById('removePairBtn').onclick = () => {
+              if (pairCount > 1) {
+                  pairsContainer.removeChild(pairsContainer.lastChild);
+                  pairCount--;
+                  
+                  if (pairCount > 0) {
+                      pairsContainer.querySelector('.pair-group hr').remove();
+                  }
+              }
+          };
+     }
+
+
+     form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const resultMessageDiv = document.getElementById('resultMessage');
+        resultMessageDiv.style.display = 'none';
+        
+        const scenarioNum = parseInt(document.querySelector('input[name="scenario"]:checked').value);
+        let url, payload, selectedValue, tableInfo, selectedTableName, selectedTableInfo;
+
+        payload = { mainRecordData: [], connectionData: [] };
+        url = `/insertMany/${encodeURIComponent("{{.Table}}")}`;
+        try {
+            if (scenarioNum === 1) {
+                
+                singleFieldsContainer.querySelectorAll('.record-group').forEach(group => {
+                    let recordData = [];
+                    columns.forEach(col => {
+                        const inputConn = group.querySelector(`input[name="${col}"]`);
+                        if (inputConn && inputConn.value.trim()) {
+                            recordData.push({ "key":col, "value": inputConn.value.trim()});
+                        } else if (notNullColumnsMain.includes(col)) {
+                            throw new Error(`Поле "${col}" обязательно для заполнения.`);
+                        }
+                    });
+                    payload.mainRecordData.push(recordData);
+                });
+                
+            } else {
+                
+                selectedValue = document.getElementById('connectedTableSelect').value;
+                const tableInfo = connectedTablesData.find(t => t.TableName === selectedValue);
+
+                console.log(tableInfo);
+
+                payload.connectedTable = selectedValue;
+                payload.ConnectedField = tableInfo.ConnectedField;
+
+                pairsContainer.querySelectorAll('.pair-group').forEach(pair => {
+                    let mainRecordData = [];
+                    let connectionData = [];
+                    console.log("here")
+                    
+                    columns.forEach(col => {
+                        const inputMain = pair.querySelector(`#mainFieldsContainer-${Array.from(pair.parentNode.children).indexOf(pair)+1} input[name="${col}"]`);
+                        console.log(inputMain);
+                        if (inputMain && inputMain.value.trim()) {
+                            mainRecordData.push({ "key":col, "value": inputMain.value.trim()});
+                        } else if (notNullColumnsMain.includes(col)) {
+                            throw new Error(`Поле "${col}" в основной таблице обязательно.`);
+                        }
+                        console.log("end col")
+                    });
+                    console.log("next")
+                    console.log(tableInfo);
+                    console.log(tableInfo.Columns);
+                    tableInfo.Columns.forEach(col => {
+                      console.log(col);
+                      console.log(pair.parentNode.children);
+                      console.log(Array.from(pair.parentNode.children).indexOf(pair)+1);
+                        const inputConn = pair.querySelector(`#connectedFieldsContainer-${Array.from(pair.parentNode.children).indexOf(pair)+1} input[name="${col}"]`);
+                        console.log(inputConn);
+                        if (inputConn && inputConn.value.trim()) {
+                            connectionData.push({ "key":col, "value": inputConn.value.trim()});
+                        } else if (tableInfo.NotNullColumns?.includes(col)) {
+                            throw new Error(`Поле "${col}" в связанной таблице обязательно.`);
+                        }
+                    });
+
+                    payload.mainRecordData.push(mainRecordData);
+                    payload.connectionData.push(connectionData);
+                });
+            }
+
+            payload.scenario = scenarioNum;
+            
+            console.log("Отправка данных на URL:", url);
+            console.log("Payload:", payload); 
+ 
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+ 
+            const data = await response.json();
+
+            let allSuccess = true;
+            let textResult = "";
+            if (!response.ok) {
+                throw new Error(data.message || `Ошибка сервера: ${response.status}`);
+            }
+            else{
+              console.log(data)
+                Object.keys(data).forEach(key =>{
+                    console.log(key);
+                    textResult += `${key}: ${data[key]}\n`
+                    if (data[key] != "OK"){
+                      allSuccess = false;
+                    }
+                });
+            }
+
+            console.log(allSuccess);
+            if (allSuccess){
+                showResultMessage('success', `Запрос успешно отправлен.`);
+            }
+            else{
+                showResultMessage('error', `Не все ячейки были сохранены.\n${textResult}`);
+            }
+             
+        } catch (error) {
+            console.error('Ошибка отправки:', error);
+            showResultMessage('error', `Произошла ошибка. ${error}`);
+        }
+     });
+
+
+     function showResultMessage(type, text) {
+          const resultDiv = document.getElementById('resultMessage');
+          resultDiv.className = type === 'success' ? 'success' : 'error';
+          resultDiv.textContent = text;
+          resultDiv.style.display = 'block';
+          
+          setTimeout(() => resultDiv.style.display = 'none', 5000);
+     }
+
+
+     document.querySelectorAll('input[name="scenario"]').forEach(radio => {
+       radio.addEventListener('change', updateFields);
+     });
+     
+     updateFields(); 
+     
+   </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Выбор действия и таблицы</title>
+</head>
+<body>
+  <h1>Выберите действие и таблицу:</h1>
+  <form id="actionForm">
+    <label for="action">Действие:</label>
+    <select id="action" name="action" required>
+      <option value="">-- Выберите действие --</option>
+      <option value="select">Select</option>
+      <option value="update">Update</option>
+      <option value="insertOne">Insert One</option>
+      <option value="insertMany">Insert Many</option>
+    </select>
+
+    <br><br>
+
+    <label for="table">Таблица:</label>
+    <select id="table" name="table" required>
+      <option value="">-- Выберите таблицу --</option>
+      <option value="products">products</option>
+      <option value="product_categories">product_categories</option>
+      <option value="users">users</option>
+      <option value="orders">orders</option>
+      <option value="order_details">order_details</option>
+    </select>
+
+    <br><br>
+
+    <button type="button" onclick="submitForm()">Перейти</button>
+  </form>
+
+  <script>
+    function submitForm() {
+      const action = document.getElementById('action').value;
+      const table = document.getElementById('table').value;
+
+      if (!action || !table) {
+        alert('Пожалуйста, выберите действие и таблицу.');
+        return;
+      }
+
+      const url = `/${action}/${table}`;
+      window.location.href = url;
+    }
+  </script>
+</body>
+</html>

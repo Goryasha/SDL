@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Изменение записей</title>
+  <style>
+    .pair-group {
+      margin-bottom: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .pair-group input {
+      width: 150px;
+      flex-shrink: 0;
+    }
+
+    .add-pair-btn, .remove-pair-btn, .add-id-btn, .remove-id-btn {
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    #resultMessage {
+      margin-top: 20px;
+      padding: 10px;
+      display: none;
+    }
+    
+    #resultContainer { margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <button class="button" onclick="window.location.href = '/'">На главную</button>
+
+  <h2>Выберите действие для таблицы {{.Table}}:</h2>
+
+  <form id="actionForm">
+    <label>
+      <input type="radio" name="scenario" value="1" checked> Изменить одну запись
+    </label><br>
+
+    <label>
+      <input type="radio" name="scenario" value="2"> Изменить несколько записей
+    </label><br>
+
+    <!-- Форма для одной записи -->
+    <div id="singleForm" style="display: block; margin-top: 15px;">
+      <div class="pair-group">
+        <input type="text" name="id" placeholder="ID записи">
+        <span>ID</span>
+      </div>
+      
+      <div class="pair-group">
+        <input type="text" name="key[]" placeholder="Ключ">
+        <input type="text" name="value[]" placeholder="Значение">
+        <button type="button" class="add-pair-btn">Добавить пару</button>
+      </div>
+    </div>
+
+    <!-- Форма для нескольких записей -->
+    <div id="multipleForm" style="display: none; margin-top: 15px;">
+      
+      <div class="pair-group">
+        <input type="text" name="id[]" placeholder="ID (добавьте ID)">
+        <button type="button" class="add-id-btn">Добавить ID</button>
+      </div>
+      
+      <div class="pair-group">
+        <input type="text" name="key[]" placeholder="Ключ">
+        <input type="text" name="value[]" placeholder="Значение">
+        <!-- Кнопка "Добавить пару" скрыта для этого сценария -->
+        <button type="button" class="add-pair-btn" style="display:none;">Добавить пару</button>
+      </div>
+    </div>
+
+    <button type="submit">Выполнить</button>
+  </form>
+
+  <div id="resultMessage"></div>
+
+  <div id="resultContainer"></div>
+
+  <script>
+    const form = document.getElementById('actionForm');
+    const singleForm = document.getElementById('singleForm');
+    const multipleForm = document.getElementById('multipleForm');
+    const resultContainer = document.getElementById('resultContainer');
+    
+    const radios = document.querySelectorAll('input[name="scenario"]');
+
+    const tableName = "{{.Table}}";
+    const apiUrl = `/update/${encodeURIComponent(tableName)}`;
+    
+    function updateForm() {
+        const selected = document.querySelector('input[name=scenario]:checked').value;
+        singleForm.style.display = selected === '1' ? 'block' : 'none';
+        multipleForm.style.display = selected === '2' ? 'block' : 'none';
+        
+        if (selected === '1') {
+            multipleForm.innerHTML = `
+              <div class="pair-group">
+                <input type="text" name="id[]" placeholder="ID (добавьте ID)">
+                <button type="button" class="add-id-btn">Добавить ID</button>
+              </div>
+              <div class="pair-group">
+                <input type="text" name="key[]" placeholder="Ключ">
+                <input type="text" name="value[]" placeholder="Значение">
+                <button type="button" class="add-pair-btn" style="display:none;">Добавить пару</button>
+              </div>
+            `;
+        } else {
+            singleForm.innerHTML = `
+              <div class="pair-group">
+                <input type="text" name="id" placeholder="ID записи">
+                <span>ID</span>
+              </div>
+              <div class="pair-group">
+                <input type="text" name="key[]" placeholder="Ключ">
+                <input type="text" name="value[]" placeholder="Значение">
+                <button type="button" class="add-pair-btn">Добавить пару</button>
+              </div>
+            `;
+        }
+        
+        setupButtons();
+    }
+
+
+    function setupButtons() {
+        document.querySelectorAll('.add-pair-btn').forEach(btn => {
+            btn.removeEventListener('click', addPairHandler);
+            btn.addEventListener('click', addPairHandler);
+            btn.nextElementSibling?.removeEventListener('click', removePairHandler);
+            btn.nextElementSibling?.addEventListener('click', removePairHandler);
+        });
+
+        document.querySelectorAll('.add-id-btn').forEach(btn => {
+            btn.removeEventListener('click', addIdHandler);
+            btn.addEventListener('click', addIdHandler);
+            btn.nextElementSibling?.removeEventListener('click', removeIdHandler);
+            btn.nextElementSibling?.addEventListener('click', removeIdHandler);
+        });
+    }
+
+
+    function addPairHandler(e) {
+        const group = e.target.closest('.pair-group').cloneNode(true);
+        
+        group.querySelectorAll('input').forEach(input => input.value = '');
+        
+        group.querySelector('.add-pair-btn').textContent = 'Добавить пару';
+        group.querySelector('.remove-pair-btn')?.remove();
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-pair-btn';
+        removeBtn.textContent = 'Удалить пару';
+        group.appendChild(removeBtn);
+        
+        e.target.closest('.pair-group').after(group);
+        
+        setupButtons();
+    }
+    
+    function removePairHandler(e) {
+        const group = e.target.closest('.pair-group');
+        if (group.parentNode.querySelectorAll('.pair-group').length > (group.parentNode.id === 'singleForm' ? 2 : 3)) {
+            group.remove();
+            setupButtons();
+        }
+    }
+
+
+    function addIdHandler(e) {
+        const group = e.target.closest('.pair-group').cloneNode(true);
+        
+        group.querySelector('input').value = '';
+        
+        group.querySelector('.add-id-btn').textContent = 'Добавить ID';
+        group.querySelector('.remove-id-btn')?.remove();
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-id-btn';
+        removeBtn.textContent = 'Удалить ID';
+        group.appendChild(removeBtn);
+        
+        e.target.closest('.pair-group').after(group);
+        
+        setupButtons();
+    }
+    
+    function removeIdHandler(e) {
+         const group = e.target.closest('.pair-group');
+         if (group.parentNode.querySelectorAll('.pair-group').length > (group.parentNode.id === 'multipleForm' ? 2 : 1)) {
+             group.remove();
+             setupButtons();
+         }
+     }
+
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const scenarioNum = document.querySelector('input[name=scenario]:checked').value;
+        
+         let ids, changesArray;
+        
+         
+         if (scenarioNum === '1') {
+             const idInput = form.querySelector('input[name=id]');
+             ids = [parseInt(idInput.value.trim())];
+             
+             changesArray = [];
+             const keys = form.querySelectorAll('input[name^=key]');
+             keys.forEach((keyInput, index) => {
+                 const key = keyInput.value.trim();
+                 const valueInput = keyInput.nextElementSibling; 
+                 
+                 if (key && valueInput) {
+                     const value = valueInput.value.trim();
+                     if (value) { 
+                         changesArray.push({ key, value });
+                     }
+                 }
+             });
+             
+             if (ids[0] === '' || changesArray.length === 0) {
+                 showResultMessage('error', 'Пожалуйста, заполните ID и хотя бы одну пару ключ=значение.');
+                 return;
+             }
+             
+         } else {
+             const idInputs = form.querySelectorAll('input[name^=id]');
+             ids = Array.from(idInputs).map(input => parseInt(input.value.trim())).filter(id => id !== '');
+             
+             changesArray = [];
+             const keys = form.querySelectorAll('input[name^=key]');
+             keys.forEach((keyInput, index) => {
+                 const key = keyInput.value.trim();
+                 const valueInput = keyInput.nextElementSibling; 
+                 
+                 if (key && valueInput) {
+                     const value = valueInput.value.trim();
+                     if (value) { 
+                         changesArray.push({ key, value });
+                     }
+                 }
+             });
+             
+             if (ids.length === 0 || changesArray.length === 0) {
+                 showResultMessage('error', 'Пожалуйста, добавьте хотя бы один ID и заполните пару ключ=значение.');
+                 return;
+             }
+             
+             changesArray = [changesArray[0]];
+         }
+
+
+         const payload = {
+             scenario: parseInt(scenarioNum),
+             ids: ids,
+             changes: changesArray
+         };
+         
+         try {
+             console.log("Отправка данных на URL:", apiUrl);
+             console.log("Payload:", payload);
+
+             const response = await fetch(apiUrl, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(payload)
+             });
+
+             const data = await response.json();
+
+             if (!response.ok) {
+                 throw new Error(data.message || `Ошибка сервера: ${response.status}`);
+             }
+             showResultMessage('success', `Запрос успешно отправлен.`);
+             
+         } catch (error) {
+             console.error('Ошибка отправки:', error);
+             resultContainer.innerHTML = `<p style="color:red;">${error.message}</p>`;
+             showResultMessage('error', `Произошла ошибка. Проверьте консоль.`);
+         }
+     });
+
+
+     function showResultMessage(type, text) {
+          const resultDiv = document.getElementById('resultMessage');
+          resultDiv.className = type === 'success' ? 'success' : 'error';
+          resultDiv.textContent = text;
+          resultDiv.style.display = 'block';
+          
+          setTimeout(() => resultDiv.style.display = 'none', 5000);
+     }
+
+
+     radios.forEach(r => r.addEventListener('change', updateForm));
+     
+     setupButtons();
+     
+   </script>
+</body>
+</html>

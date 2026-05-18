@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Добавление записей в связанные таблицы</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { margin-bottom: 10px; }
+    .scenario { margin-bottom: 15px; }
+    .form-group { margin-bottom: 10px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    label { min-width: 120px; font-weight: bold; }
+    input, select { width: 200px; padding: 5px; }
+    button { padding: 6px 12px; cursor: pointer; margin-top: 15px; }
+    #resultMessage {
+      margin-top: 20px;
+      padding: 10px;
+      display: none;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .linked-field input { background-color: #e6f7ff; }
+    .connected-table-fields { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc; }
+    .connected-table-fields h3 { margin-top: 0; font-size: 1.1em; }
+
+    .disabled-option {
+      color: #9e9e9e;
+      pointer-events: none;
+      cursor: not-allowed;
+    }
+
+    .scenario-unavailable {
+      color: #d32f2f;
+      font-style: italic;
+      margin-top: 8px;
+      display: none;
+    }
+
+  </style>
+</head>
+<body>
+  <button class="button" onclick="window.location.href = '/'">На главную</button>
+
+  <h2>Добавление записей в связанные таблицы {{.Table}}</h2>
+
+  <div class="scenario">
+    <label>
+      <input type="radio" name="scenario" value="1" checked> Добавить одну строку в одну таблицу
+    </label><br>
+    
+    <label>
+      <input type="radio" name="scenario" id="scenario2Radio" value="2"> Добавить одну строку в несколько связанных таблиц
+    </label>
+    
+    <div id="scenarioErrorMessage" class="scenario-unavailable">
+      Сценарий недоступен: нет связанных таблиц для подключения.
+    </div>
+  </div>
+
+  <form id="addForm">
+
+    <div id="singleForm" style="display: block;">
+      <h3>Данные для записи</h3>
+      <div id="singleFieldsContainer"></div>
+    </div>
+
+    <div id="multipleForm" style="display: none;">
+      
+      <div id="mainTableFieldsContainer" class="connected-table-fields" style="display:none;">
+        <h3>Данные для новой записи в основной таблице</h3>
+        <div id="mainFieldsContainer"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Связанная таблица:</label>
+        <select id="connectedTableSelect" disabled>
+          <option value="">-- Выберите таблицу --</option>
+        </select>
+      </div>
+
+      <div id="connectedTableFieldsContainer" class="connected-table-fields" style="display:none;">
+        <h3>Данные для связанной таблицы</h3>
+        <div id="connectedFieldsContainer"></div>
+      </div>
+    </div>
+    </form>
+
+  <button id="submitButton" type="submit" form="addForm">Выполнить</button>
+
+  <div id="resultMessage"></div>
+
+  <script>
+    const form = document.getElementById('addForm');
+
+    const columns = {{.Columns}};
+    const connectedTablesData = {{.ConnectedTables}}.Tables;
+    const notNullColumnsMain = {{.NotNullColumns}} || [];
+
+     function createInput(NotNullColumns, name, placeholder, type = 'text', options = {}) {
+       const div = document.createElement('div');
+       div.className = 'form-group';
+ 
+       const label = document.createElement('label');
+       label.htmlFor = name;
+       label.textContent = placeholder;
+ 
+       const input = document.createElement('input');
+       input.type = type || 'text';
+       input.name = name;
+       input.placeholder = placeholder;
+
+       if (NotNullColumns.includes(name)) {
+        const star = document.createElement('span');
+        star.className = 'required-indicator';
+        star.textContent = '*';
+        label.appendChild(star);
+      }
+ 
+       if (options.disabled) {
+         input.disabled = true;
+         input.style.backgroundColor = '#f0f4f8';
+         label.style.color = '#9e9e9e';
+       }
+ 
+       div.appendChild(label);
+       div.appendChild(input);
+       return div;
+     }
+
+
+     function updateFields() {
+         const scenario = document.querySelector('input[name="scenario"]:checked').value;
+         singleForm.style.display = scenario === '1' ? 'block' : 'none';
+         multipleForm.style.display = scenario === '2' ? 'block' : 'none';
+         
+         const submitButton = document.getElementById('submitButton');
+         const scenario2Radio = document.getElementById('scenario2Radio');
+         const errorMessage = document.getElementById('scenarioErrorMessage');
+
+         if (scenario === '1') {
+             const singleFieldsContainer = document.getElementById('singleFieldsContainer');
+             singleFieldsContainer.innerHTML = '';
+             columns.forEach(col => {
+    
+                 console.log(notNullColumnsMain)
+                 singleFieldsContainer.appendChild(createInput(notNullColumnsMain, col, col));
+             });
+             
+             submitButton.disabled = false;
+             errorMessage.style.display = 'none';
+             
+         } else {
+             submitButton.disabled = true;
+             const mainFieldsContainer = document.getElementById('mainFieldsContainer');
+             mainFieldsContainer.innerHTML = '';
+             columns.forEach(col => {
+                 mainFieldsContainer.appendChild(createInput(notNullColumnsMain, col, col));
+             });
+             document.getElementById('mainTableFieldsContainer').style.display = 'block';
+
+             const select = document.getElementById('connectedTableSelect');
+             select.innerHTML = '<option value="">-- Выберите таблицу --</option>';
+             
+             if (connectedTablesData.length === 0) {
+                 select.disabled = true;
+                 scenario2Radio.disabled = true;
+                 scenario2Radio.parentElement.classList.add('disabled-option');
+                 
+                 errorMessage.style.display = 'block';
+                 
+             } else {
+                 select.disabled = false;
+                 connectedTablesData.forEach(tableInfo => {
+                     const option = document.createElement('option');
+                     option.value = tableInfo.TableName;
+                     option.textContent = tableInfo.TableName;
+                     select.appendChild(option);
+                  });
+                 
+                 scenario2Radio.disabled = false;
+                 scenario2Radio.parentElement.classList.remove('disabled-option');
+                 
+                 errorMessage.style.display = 'none';
+                 
+                 document.getElementById('connectedFieldsContainer').innerHTML = '';
+                 document.getElementById('connectedTableFieldsContainer').style.display = 'none';
+             }
+         }
+     }
+
+
+     document.getElementById('connectedTableSelect').addEventListener('change', function() {
+         const selectedValue = this.value;
+         const fieldsContainerMain = document.getElementById('mainFieldsContainer');
+         const fieldsContainerConn = document.getElementById('connectedFieldsContainer');
+         
+         fieldsContainerMain.innerHTML = '';
+         fieldsContainerConn.innerHTML = '';
+
+         if (!selectedValue) {
+             document.getElementById('connectedTableFieldsContainer').style.display = 'none';
+             return;
+         }
+         
+         const tableInfo = connectedTablesData.find(t => t.TableName === selectedValue);
+         submitButton.disabled = false;
+         
+         columns.forEach(col => {
+
+             
+             const isLinkFieldInMainTable = (col === tableInfo.ConnectedField);
+             
+             fieldsContainerMain.appendChild(
+                 createInput(notNullColumnsMain, col, col, null, { disabled: isLinkFieldInMainTable })
+             );
+         });
+         
+         document.getElementById('mainTableFieldsContainer').style.display = 'block';
+         
+
+         tableInfo.Columns.forEach(col => {
+             const isLinkedFieldInConnectedTable = (col === tableInfo.ConnectedField);
+             const notNullColumnsConnected = tableInfo.NotNullColumns;
+             fieldsContainerConn.appendChild(
+                 createInput(notNullColumnsConnected, col, col, isLinkedFieldInConnectedTable ? 'text' : null, isLinkedFieldInConnectedTable)
+             );
+         });
+         
+         document.getElementById('connectedTableFieldsContainer').style.display = 'block';
+     });
+
+
+     form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const resultMessageDiv = document.getElementById('resultMessage');
+        resultMessageDiv.style.display = 'none';
+        
+        const scenarioNum = parseInt(document.querySelector('input[name="scenario"]:checked').value);
+
+        payload = { mainRecordData: [], connectionData: [] };
+        try {
+            let url;
+            if (scenarioNum === 1) {
+                url = `/insertOne/${encodeURIComponent("{{.Table}}")}`;
+                const inputsArray = Array.from(singleFieldsContainer.querySelectorAll('input'))
+                columns.forEach(col => {
+      
+                    const inputConn = inputsArray.find(input => input.name === col);
+                    if (inputConn && inputConn.value.trim()) {
+                        payload.mainRecordData.push({ "key":col, "value":inputConn.value.trim()});
+                    }
+                });
+            } else {
+
+                const selectedValue = document.getElementById('connectedTableSelect').value;
+                const tableInfo = connectedTablesData.find(t => t.TableName === selectedValue);
+
+                payload.connectedTable = tableInfo.TableName;
+                payload.connectedField = tableInfo.ConnectedField;
+                url = `/insertOne/${encodeURIComponent("{{.Table}}")}`;
+                columns.forEach(col => {
+      
+                    const inputMain = document.querySelector(`#mainFieldsContainer input[name="${col}"]`);
+                    if (inputMain && inputMain.value.trim()) {
+                        payload.mainRecordData.push({ "key":col, "value":inputMain.value.trim()});
+                    }
+                });
+                
+                const selectedTableName = document.getElementById('connectedTableSelect').value;
+                const selectedTableInfo = connectedTablesData.find(t => t.TableName === selectedTableName);
+                const inputsArray = Array.from(connectedFieldsContainer.querySelectorAll('input'))
+                selectedTableInfo.Columns.forEach(col => {
+                    const inputConn = inputsArray.find(input => input.name === col);
+                    if (inputConn && inputConn.value.trim()) {
+                        payload.connectionData.push({ "key":col, "value":inputConn.value.trim()});
+                    }
+                });
+            }
+            payload.scenario = scenarioNum;
+            console.log("Отправка данных на URL:", url);
+            console.log("Payload:", payload); 
+ 
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+ 
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || `Ошибка сервера: ${response.status}`);
+            }
+ 
+            showResultMessage('success', `Запрос успешно отправлен.`);
+             
+        } catch (error) {
+            console.error('Ошибка отправки:', error);
+            showResultMessage('error', `Произошла ошибка. ${error}.`);
+        }
+     });
+
+
+     function showResultMessage(type, text) {
+          const resultDiv = document.getElementById('resultMessage');
+          resultDiv.className = type === 'success' ? 'success' : 'error';
+          resultDiv.textContent = text;
+          resultDiv.style.display = 'block';
+          
+          setTimeout(() => resultDiv.style.display = 'none', 5000);
+     }
+
+
+     document.querySelectorAll('input[name="scenario"]').forEach(radio => {
+       radio.addEventListener('change', updateFields);
+     });
+     
+     updateFields(); 
+     
+   </script>
+</body>
+</html>

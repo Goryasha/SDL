@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Select: {{.Table}}</title>
+  <style>
+  .pair-group {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .pair-group input {
+    width: 150px;
+    flex-shrink: 0;
+  }
+
+  .add-pair-btn, .remove-pair-btn {
+    margin-left: 10px;
+    cursor: pointer;
+  }
+
+  #resultMessage {
+    margin-top: 20px;
+    padding: 10px;
+    display: none;
+  }
+  
+  #resultTableContainer { margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+
+  .success { color: green; }
+  .error { color: red; }
+</style>
+</head>
+<body>
+  <button class="button" onclick="window.location.href = '/'">На главную</button>
+
+  <h2>Выберите действие для таблицы {{.Table}}:</h2>
+
+  <form id="actionForm">
+    <label>
+      <input type="radio" name="scenario" value="1" checked> Выбрать все данные
+    </label><br>
+
+    <label>
+      <input type="radio" name="scenario" value="2"> Выбрать по одному параметру
+    </label><br>
+
+    <label>
+      <input type="radio" name="scenario" value="3"> Выбрать по нескольким параметрам
+    </label><br>
+
+    <div id="singlePair" style="display: none; margin-top: 15px;">
+      <div class="pair-group">
+        <input type="text" name="key[]" placeholder="Ключ">
+        <input type="text" name="value[]" placeholder="Значение">
+      </div>
+    </div>
+
+    <div id="multiPairs" style="display: none; margin-top: 15px;">
+      <div class="pair-group">
+        <input type="text" name="key[]" placeholder="Ключ">
+        <input type="text" name="value[]" placeholder="Значение">
+        <button type="button" class="add-pair-btn">Добавить пару</button>
+      </div>
+    </div>
+
+    <button type="submit">Выполнить</button>
+  </form>
+
+  <div id="resultMessage"></div>
+
+  <div id="resultTableContainer"></div>
+
+  <script>
+    const form = document.getElementById('actionForm');
+    const singlePairDiv = document.getElementById('singlePair');
+    const multiPairsDiv = document.getElementById('multiPairs');
+    const resultContainer = document.getElementById('resultTableContainer');
+    
+    const radios = document.querySelectorAll('input[name="scenario"]');
+    
+    const tableName = "{{.Table}}";
+    const apiUrl = `/select/${encodeURIComponent(tableName)}`;
+
+
+    function updateForm() {
+        const selected = document.querySelector('input[name="scenario"]:checked').value;
+        singlePairDiv.style.display = selected === '2' ? 'block' : 'none';
+        multiPairsDiv.style.display = selected === '3' ? 'block' : 'none';
+
+        if (selected !== '3') {
+            multiPairsDiv.innerHTML = `
+              <div class="pair-group">
+                <input type="text" name="key[]" placeholder="Ключ">
+                <input type="text" name="value[]" placeholder="Значение">
+                <button type="button" class="add-pair-btn">Добавить пару</button>
+              </div>
+            `;
+        }
+    }
+
+
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('add-pair-btn')) {
+            const group = e.target.closest('.pair-group').cloneNode(true);
+            
+            group.querySelectorAll('input').forEach(input => input.value = '');
+            
+            group.querySelector('.add-pair-btn').textContent = 'Добавить пару';
+            group.querySelector('.remove-pair-btn')?.remove();
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-pair-btn';
+            removeBtn.textContent = 'Удалить пару';
+            group.appendChild(removeBtn);
+            
+            multiPairsDiv.appendChild(group);
+        }
+
+        if (e.target && e.target.classList.contains('remove-pair-btn')) {
+            const group = e.target.closest('.pair-group');
+            if (multiPairsDiv.querySelectorAll('.pair-group').length > 1) {
+                group.remove();
+            }
+        }
+    });
+
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const scenario = document.querySelector('input[name="scenario"]:checked').value;
+        
+        
+        const pairs = [];
+        const keys = form.querySelectorAll('input[name^="key["]');
+        
+        keys.forEach((keyInput, index) => {
+            const key = keyInput.value.trim();
+            const valueInput = keyInput.nextElementSibling; 
+            
+            if (key && valueInput) {
+                const value = valueInput.value.trim();
+                if (value) { 
+                    pairs.push({ key, value });
+                }
+            }
+        });
+
+        const payload = {
+            scenario: parseInt(scenario),
+            filters: pairs
+        };
+        
+        sendData(payload);
+    });
+
+
+    async function sendData(data) {
+        const url = `/select/${encodeURIComponent(tableName)}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const resultDiv = document.getElementById('resultMessage');
+            
+            if (response.ok) {
+                resultDiv.className = 'success';
+                resultDiv.textContent = 'Данные успешно отправлены!';
+                resultDiv.style.display = 'block';
+                
+                form.reset();
+                updateForm();
+                
+            } else {
+                throw new Error(`Ошибка сервера: ${response.status}`);
+            }
+            
+        } catch (error) {
+            console.error('Ошибка отправки:', error);
+            const resultDiv = document.getElementById('resultMessage');
+            resultDiv.className = 'error';
+            resultDiv.textContent = `Произошла ошибка: ${error.message}`;
+            resultDiv.style.display = 'block';
+        }
+    }
+
+    form.addEventListener('submit', async function(e) {
+          e.preventDefault();
+
+          resultContainer.innerHTML = '<p>Загрузка...</p>';
+
+          const formData = new FormData(form);
+          const scenario = formData.get('scenario');
+          
+          const pairs = [];
+          const keys = form.querySelectorAll('input[name^="key["]');
+          
+          keys.forEach((keyInput, index) => {
+              const key = keyInput.value.trim();
+              const valueInput = keyInput.nextElementSibling;
+              
+              if (key && valueInput) {
+                  const value = valueInput.value.trim();
+                  if (value) {
+                      pairs.push({ key, value });
+                  }
+              }
+          });
+
+          const payload = {
+              scenario: parseInt(scenario),
+              filters: pairs
+          };
+
+          try {
+              const response = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+              });
+
+              const data = await response.json();
+              console.log(data)
+              
+              if (!response.ok) {
+                  throw new Error(`Ошибка:\n ${data.message}`);
+              }
+
+              renderTable(data);
+              
+          } catch (error) {
+              console.error('Ошибка:', error);
+              console.log(error);
+              resultContainer.innerHTML = `<p style="color:red;">${error}.</p>`;
+          }
+      });
+
+
+      function renderTable(rawData) {
+          if (!rawData || Object.keys(rawData).length === 0) {
+              resultContainer.innerHTML = '<p>Данных для отображения нет.</p>';
+              return;
+          }
+          
+          const firstRowKey = Object.keys(rawData)[0];
+          const headers = Object.keys(rawData[firstRowKey]);
+          
+          let tableHtml = '<table>';
+          
+          tableHtml += '<tr>';
+          headers.forEach(headerText => {
+            tableHtml += `<th>${headerText}</th>`;
+          });
+          tableHtml += '</tr>';
+          
+          for (const rowKey in rawData) {
+            const rowData = rawData[rowKey];
+            
+            tableHtml += '<tr>';
+            headers.forEach(header => {
+                let cellValue = rowData[header];
+                
+                if (header === 'price' && typeof cellValue === 'string') {
+                    try {
+                        const decodedBytes = atob(cellValue);
+                        cellValue = decodeURIComponent(escape(decodedBytes));
+                    } catch (e) {
+                        console.warn("Не удалось декодировать base64:", cellValue);
+                    }
+                }
+                
+                tableHtml += `<td>${cellValue}</td>`;
+            });
+            tableHtml += '</tr>';
+          }
+          
+          tableHtml += '</table>';
+          
+          resultContainer.innerHTML = tableHtml;
+      }
+
+
+    radios.forEach(r => r.addEventListener('change', updateForm));
+    
+    updateForm();
+    
+  </script>
+</body>
+</html>
