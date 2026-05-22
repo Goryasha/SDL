@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
+	"net/http"
 	
 
 	"connectToDB/handlers"
@@ -10,6 +12,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/timeout"
 )
 
 func main()  {
@@ -32,6 +35,14 @@ func main()  {
 
 	gin.SetMode(gin.DebugMode)
     r := gin.Default()
+
+	r.Use(timeout.New(
+        timeout.WithTimeout(10*time.Second),
+        timeout.WithResponse(func(c *gin.Context) {
+			fmt.Fprint(os.Stderr, "Request took too long.\n")
+            c.JSON(http.StatusRequestTimeout, gin.H{"error": "Request took too long"})
+        }),
+    ))
 
     r.LoadHTMLGlob("templates/*")
 
