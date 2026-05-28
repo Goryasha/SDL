@@ -33,7 +33,7 @@ func main()  {
 	defer fn()
     
 
-	gin.SetMode(gin.DebugMode)
+	gin.SetMode(gin.ReleaseMode)
     r := gin.Default()
 
 	r.Use(timeout.New(
@@ -80,8 +80,8 @@ func main()  {
 		}
     }
 
-    fmt.Println("Сервер запущен на :8080")
-    if err := r.Run("0.0.0.0:8080"); err != nil {
+    fmt.Println("Сервер запущен на :8090")
+    if err := r.Run("0.0.0.0:8090"); err != nil {
         fmt.Fprint(os.Stderr, err)
     }
 

@@ -69,7 +69,16 @@ func LoginHandlerPost(c *gin.Context) {
 
         InternalCache.Set(cacheKey, dbConn, cache.DefaultExpiration)
     
-        c.SetCookie("auth", sessionUUID, 3600, "/", "localhost", true, true)
+        c.SetCookieData(&http.Cookie{
+            Name: "auth",
+            Value: sessionUUID,
+            Expires: time.Now().Add(2 * time.Hour),
+            Path: "/",
+            Domain: "localhost",
+            Secure: false,
+            HttpOnly: false,
+            SameSite: http.SameSiteLaxMode,
+        })
         
         c.Redirect(http.StatusSeeOther, "/")
     }
