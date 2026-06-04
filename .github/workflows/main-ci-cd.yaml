@@ -30,12 +30,13 @@ jobs:
       - name: Copy .env file from local path to workspace
         env:
             LOCALHOST_PROJECT_PATH: ${{ secrets.LOCALHOST_PROJECT_PATH }}
+        working-directory: ./PracticalWork/Task7
         run: |
           echo "Copying .env file..."
-          env
           cp "$LOCALHOST_PROJECT_PATH/.env" .
           
           # Проверим, что файл скопировался
+          pwd
           ls -la .env
 
       - name: Build Docker Images
