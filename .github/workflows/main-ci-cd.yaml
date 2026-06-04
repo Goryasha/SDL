@@ -34,6 +34,7 @@ jobs:
       - name: Start Application and DB via Docker Compose
         id: start_containers
         run: |
+          cd ./PracticalWork/Task7
           echo "Starting services..."
           docker compose up -d
           echo "::set-output name::started"
