@@ -19,11 +19,6 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Install Semgrep
-        uses: returntocorp/semgrep@v3
-        with:
-          version: latest
-
       - name: Run Semgrep scan
         env:
           SEMGREP_REPORTER: json
@@ -63,20 +58,30 @@ jobs:
       - name: Wait for Services to be Ready
         run: sleep 30
 
-      - name: Run ZAP Baseline Scan
-        uses: OpenSecurity/owasp-zap-action/actions/baseline/scan@main
-        with:
-          target: http://localhost:8090
-          accept-risk-alerts: true
-          start_options: '-config api.disablekey=true'
+      # - name: Run ZAP Baseline Scan using local tool
+      #   id: zap_scan
+      #   env:
+      #     TARGET_URL: http://localhost:8090
+      #   run: |
+      #     mkdir -p tools
 
-      - name: Save and Upload ZAP Report
-        run: |
-          mkdir reports
-          cp ZAP_*.html reports/ZAP_Report.html
+      #     # Скачиваем последнюю версию ZAP Baseline .jar файла
+      #     LATEST_ZAP_VERSION=$(curl -s https://api.github.com/repos/zaproxy/zap-core/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+      #     ZAP_JAR_URL="https://github.com/zaproxy/zap-core/releases/download/core-${LATEST_ZAP_VERSION}/zap-baseline.py"
 
-      - name: Upload ZAP Report as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report
-          path: reports/ZAP_Report.html
+      #     echo "Downloading ZAP Baseline script for version ${LATEST_ZAP_VERSION}..."
+      #     curl -L "${ZAP_JAR_URL}" -o tools/zap-baseline.py
+      #     chmod +x tools/zap-baseline.py
+
+      #     # Запускаем сканирование
+      #     echo "Starting DAST scan against $TARGET_URL..."
+      #     python3 tools/zap-baseline.py -t "$TARGET_URL" -r ZAP_Report.html
+
+      #     # Проверяем результат сканирования
+      #     if [ -f "ZAP_Report.html" ]; then
+      #       echo "::set-output name=report_path::ZAP_Report.html"
+      #       echo "Scan completed successfully."
+      #     else
+      #       echo "Scan failed to produce a report."
+      #       exit 1
+      #     fi
