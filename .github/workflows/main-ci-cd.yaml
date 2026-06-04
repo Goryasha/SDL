@@ -32,14 +32,16 @@ jobs:
           push: false
           tags: app-image:latest
 
-      - name: Deploy to Production Server
-        uses: appleboy/ssh-action@master
-        env:
-          HOST: ${{ secrets.HOST_ADDRESS }}
-        with:
-          username: kali
-          key: ${{ secrets.GH_SSH_PRIVATE_KEY }}
-          script: |
-            cd /home/kali/SDL
-            docker compose down
-            docker compose up -d
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Images
+        working-directory: ./
+        run: docker compose build --pull
+
+      - name: Start Application and DB via Docker Compose
+        id: start_containers
+        run: |
+          echo "Starting services..."
+          docker compose up -d
+          echo "::set-output name::started"
