@@ -30,6 +30,7 @@ jobs:
       - name: Copy .env file from local path to workspace
         run: |
           echo "Copying .env file..."
+          env
           cp "$LOCALHOST_PROJECT_PATH/.env" .
           
           # Проверим, что файл скопировался
