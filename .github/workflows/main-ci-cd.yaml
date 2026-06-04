@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   build-and-deploy:
@@ -22,7 +22,7 @@ jobs:
       - name: Build Go binary
         run: |
           cd ./PracticalWork/Task7/src
-          CGO_ENABLED=0 GOOS=linux go build -o myapp .
+          CGO_ENABLED=0 GOOS=linux go build -o main.exe
 
       - name: Build Docker image
         uses: docker/build-push-action@v4
