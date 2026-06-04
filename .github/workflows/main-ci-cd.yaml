@@ -27,6 +27,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Copy .env file from local path to workspace
+        run: |
+          echo "Copying .env file..."
+          cp "$LOCALHOST_PROJECT_PATH/.env" .
+          
+          # Проверим, что файл скопировался
+          ls -la .env
+
       - name: Build Docker Images
         working-directory: ./PracticalWork/Task7
         run: docker compose build --pull
