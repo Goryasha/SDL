@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./PracticalWork/Task7/src
-          file: ./Dockerfile
+          file: ./PracticalWork/Task7/src/Dockerfile
           push: false
           tags: app-image:latest
 
