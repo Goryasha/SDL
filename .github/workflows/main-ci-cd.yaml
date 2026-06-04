@@ -24,19 +24,11 @@ jobs:
           cd ./PracticalWork/Task7/src
           CGO_ENABLED=0 GOOS=linux go build -o main.exe
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./PracticalWork/Task7/src
-          file: ./PracticalWork/Task7/src/Dockerfile
-          push: false
-          tags: app-image:latest
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Images
-        working-directory: ./
+        working-directory: ./PracticalWork/Task7
         run: docker compose build --pull
 
       - name: Start Application and DB via Docker Compose
