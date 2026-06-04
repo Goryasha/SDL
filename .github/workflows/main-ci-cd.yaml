@@ -19,6 +19,16 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: Install Semgrep
+        uses: returntocorp/semgrep-action@v3
+        with:
+          version: latest
+
+      - name: Run Semgrep scan
+        env:
+          SEMGREP_REPORTER: json
+        run: semgrep ci --config=p/ci > results.json && cat results.json || true
+
       - name: Build Go binary
         run: |
           cd ./PracticalWork/Task7/src
@@ -49,3 +59,24 @@ jobs:
           cd ./PracticalWork/Task7
           echo "Starting services..."
           docker compose up -d
+
+      - name: Wait for Services to be Ready
+        run: sleep 30
+
+      - name: Run ZAP Baseline Scan
+        uses: owasp/zap2docker-stable/actions/baseline/scan@main
+        with:
+          target: http://localhost:8090
+          accept-risk-alerts: true
+          start_options: '-config api.disablekey=true'
+
+      - name: Save and Upload ZAP Report
+        run: |
+          mkdir reports
+          cp ZAP_*.html reports/ZAP_Report.html
+
+      - name: Upload ZAP Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: reports/ZAP_Report.html
