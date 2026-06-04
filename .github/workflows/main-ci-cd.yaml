@@ -1,0 +1,45 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Go binary
+        run: |
+          cd ./PracticalWork/Task7/src
+          CGO_ENABLED=0 GOOS=linux go build -o myapp .
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: app-image:latest
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@master
+        env:
+          HOST: ${{ secrets.HOST_ADDRESS }}
+        with:
+          username: kali
+          key: ${{ secrets.GH_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/kali/SDL
+            docker compose down
+            docker compose up -d
