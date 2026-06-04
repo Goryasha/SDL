@@ -20,7 +20,7 @@ jobs:
           go-version: '1.22'
 
       - name: Install Semgrep
-        uses: returntocorp/semgrep-action@v3
+        uses: returntocorp/semgrep@v3
         with:
           version: latest
 
@@ -64,7 +64,7 @@ jobs:
         run: sleep 30
 
       - name: Run ZAP Baseline Scan
-        uses: owasp/zap2docker-stable/actions/baseline/scan@main
+        uses: OpenSecurity/owasp-zap-action/actions/baseline/scan@main
         with:
           target: http://localhost:8090
           accept-risk-alerts: true
